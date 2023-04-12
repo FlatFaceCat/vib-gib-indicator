@@ -1,0 +1,159 @@
+// FlatFaceCat VIB and GIB indicator
+// v1.7 ----- 12 Apr 2023
+// This source code is subject to the terms of the Mozilla Public License 2.0 at https://mozilla.org/MPL/2.0/
+
+// An indicator that will overlay the last 'x' VIB (Volume ImBalances) and GIB (Gap ImBalances) on a chart. 
+// -----VIB (Volume Imbalance)-----:
+// This is when there is a gap in price between the close of a candle, and the open of the next candle
+// -----GIB (Gap Imbalance)-----:
+// Has the same principles as a VIB, but the wick of the "next" candle is unable to close the gap of the VIB either. 
+
+
+//===========Version History============
+// V1.0 : Initial release 
+// V1.1 : Fixed bugs related to missed gaps and bulls/bears
+// v1.2 : Minor naming convention bug fix
+// v1.3 : Bug fix related to issue when wick = close price 
+// v1.4 : Just added more cats
+// v1.5 : Corrected GIB indication candle 
+// v1.6 : Correction going from Bull->Bear 
+// v1.7 : Added the option to lighten or darkern borders
+
+
+//@version=5
+indicator("VIB / GIB v1.7", overlay = true, max_boxes_count = 500, max_bars_back = 500)
+
+
+version = 'v1.7'
+// Set up input zones for the users
+var mainGroup = 'Release ' + version
+bool showCats = input.bool(true, "Show icons",  group = mainGroup)
+bool showVImbalance = input.bool(true, "Show VIBs",  group = mainGroup)
+color vibImbColorInput = input.color(color.green, "VIB Colours:", group = mainGroup)
+bool showGImbalance = input.bool(true, "Show GIBs", group = mainGroup)
+color gibImbColorInput = input.color(color.blue, "GIB Colours", group = mainGroup)
+int numberOfZonesInput = input.int(5, "# Instances",  group = mainGroup)
+int imbTranspInput = input.int(90, "Fill Transparency", group = mainGroup)
+int imbTranspInput2 = input.int(100, "Border Transparency", group = mainGroup)
+
+// ———————————————————— Volume Imbalances ———————————————————— 
+var bool varImbBull = na
+var bool varImbBear = na
+// look for bullish VIBs 
+if (open[0] > open[1])
+    if (close[0] > close[1])
+        if (open[0] > close[1])
+            if (low[0] <= close[1])
+                if (close[0] > open[0])
+                    varImbBull := true
+                else
+                    varImbBull := false 
+            else
+                varImbBull := false 
+        else
+            varImbBull := false
+    else   
+        varImbBull := false
+else
+    varImbBull := false
+// look for bullish VIBS
+if (open[0] < open[1])
+    if (close[0] < close[1])
+        if (open[0] < close[1])
+            if (close[1] <= high[0])
+                if (close[0] < open[0])
+                    varImbBear := true
+                else
+                    varImbBear := false 
+            else
+                varImbBear := false
+        else
+            varImbBear := false
+    else   
+        varImbBear := false
+else
+    varImbBear := false
+
+var box[] ImbBoxes = array.new_box()
+var bool[] ImbType = array.new_bool()
+
+var color vibColor = color.new(vibImbColorInput, imbTranspInput)
+var color vibColor2 = color.new(vibImbColorInput, imbTranspInput2)
+
+plotshape(varImbBear and showCats, location = location.abovebar, color = na,  text = "🐱")
+plotshape(varImbBull and showCats, location = location.belowbar, color = na,  text = "🐱")
+
+// for vibs
+if varImbBear and showVImbalance
+    array.push(ImbBoxes, box.new(left = time[1], top = close[1], right = time, bottom = open[0], extend = extend.right, xloc = xloc.bar_time, border_color = vibColor2, bgcolor = vibColor))
+    array.push(ImbType, true)
+
+if varImbBull and showVImbalance
+    array.push(ImbBoxes, box.new(left = time[1], top = close[1], right = time, bottom = open[0], extend = extend.right, xloc = xloc.bar_time, border_color = vibColor2, bgcolor = vibColor))
+    array.push(ImbType, false)
+
+// limit number of boxes allowed
+if array.size(ImbBoxes) > numberOfZonesInput
+    box.delete(array.shift(ImbBoxes))
+    array.shift(ImbType)
+// ———————————————————— Gap Imbalances ———————————————————— 
+var bool gapImbBull = na
+var bool gapImbBear = na
+// look for bullish GIBs 
+if (open[0] > open[1])
+    if (close[0] > close[1])
+        if (open[0] > close[1])
+            if (low[1] >= close[0])
+                if (close[0] > open[0])
+                    gapImbBull := true
+                else
+                    gapImbBull := false 
+            else
+                gapImbBull := false 
+        else
+            gapImbBull := false
+    else   
+        gapImbBull := false
+else
+    gapImbBull := false
+// look for bearish GIBS
+if (open[0] < open[1])
+    if (close[0] < close[1])
+        if (open[0] < close[1])
+            if (low[1] >= open[0])
+                if (close[0] < open[0])
+                    gapImbBear := true
+                else
+                    gapImbBear := false
+            else
+                gapImbBear := false
+        else
+            gapImbBear := false
+    else   
+        gapImbBear := false
+else
+    gapImbBear := false
+
+var box[] gapImbBoxes = array.new_box()
+var bool[] gapImbType = array.new_bool()
+
+var color gibColor = color.new(gibImbColorInput, imbTranspInput)
+var color gibColor2 = color.new(gibImbColorInput, imbTranspInput2)
+
+plotshape(gapImbBear and showCats, location = location.abovebar, color = na,  text = "🐈")
+plotshape(gapImbBull and showCats, location = location.belowbar, color = na,  text = "🐈")
+
+// for Gibs
+if gapImbBear and showGImbalance
+    array.push(gapImbBoxes, box.new(left = time[1], top = close[1], right = time, bottom = open[0], extend = extend.right, xloc = xloc.bar_time, border_color = gibColor2, bgcolor = gibColor))
+    array.push(gapImbType, true)
+
+if gapImbBull and showGImbalance
+    array.push(gapImbBoxes, box.new(left = time[1], top = close[1], right = time, bottom = open[0], extend = extend.right, xloc = xloc.bar_time, border_color = gibColor2, bgcolor = gibColor))
+    array.push(gapImbType, false)
+
+// limit number of boxes allowed
+if array.size(gapImbBoxes) > numberOfZonesInput
+    box.delete(array.shift(gapImbBoxes))
+    array.shift(gapImbType)
+// ————————————————————————————————————————————————————————————
